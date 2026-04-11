@@ -1,0 +1,11 @@
+apiversion: v1
+type: service
+metadata:
+  name: redis-queue
+spec: 
+  selector:
+    app: redis-queue
+  ports:
+    - port : 6379
+      targetPort: 6379
+  type: ClusterIP

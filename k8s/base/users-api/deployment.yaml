@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: users-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: users-api
+  template:
+    metadata:
+      labels:
+        app: users-api
+    spec:
+      containers:
+        - name: users-api
+          image: ghcr.io/andresbueno420/users-api:latest
+          ports:
+            - containerPort: 8083
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Xms256m -Xmx512m"
+            - name: ZIPKIN_URL
+              value: "http://zipkin-server:9411/api/v2/spans"

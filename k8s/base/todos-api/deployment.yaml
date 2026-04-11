@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todos-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: todos-api
+  template:
+    metadata:
+      labels:
+        app: todos-api
+    spec:
+      containers:
+        - name: todos-api
+          image: ghcr.io/andresbueno420/todos-api:latest
+          ports:
+            - containerPort: 8082
+          env:
+            - name: REDIS_HOST
+              value: "redis-queue"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: ZIPKIN_URL
+              value: "http://zipkin-server:9411/api/v2/spans"

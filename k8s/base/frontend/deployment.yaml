@@ -1,0 +1,26 @@
+apiversion: apps/v1
+kind: deployment
+metadata:
+  name: frontend-app
+specs:
+  replicas: 1
+  selector:
+    matchlabels:
+      app: frontend-app
+  template:
+    metadata:
+      labels:
+        app: frontend-app
+    spec: 
+      containers:
+        - name: frontend-app
+          image: ghcr.io/andresbueno420/frontend:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: AUTH_API_ADDRESS
+              value: "http://auth-api:8000"
+            - name: TODOS_API_ADDRESS
+              value: "http://todos-api:8082"
+            - name: ZIPKIN_URL
+              value: "http://zipkin-server:9411/api/v2/spans"

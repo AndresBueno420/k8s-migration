@@ -1,0 +1,11 @@
+apiversion: v1
+kind: Service
+metadata:
+  name: auth-api
+spec:   
+  selector:
+    app: auth-app
+  ports:
+    - port: 8000
+      targetPort: 8000
+  type: ClusterIP
