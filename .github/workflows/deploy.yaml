@@ -5,6 +5,7 @@ on:
       - main
     paths:
       - 'k8s/**'
+  workflow_dispatch:
 jobs:
   deploy:
     name: Deploy k8s manifests
@@ -60,8 +61,6 @@ jobs:
             kubectl rollout status deployment/frontend-app \
               -n microservices --timeout=300s
               
-            # Mostramos el estado final de todos los pods
-            # Esto queda registrado en el log del workflow
             echo "--- Estado final del cluster ---"
             kubectl get pods -n microservices
             kubectl get services -n microservices
