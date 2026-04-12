@@ -28,20 +28,15 @@ jobs:
           ssh -i ~/.ssh/deploy_key \
             ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }} << 'EOF'
             
-            # --- Docker ---
-            # Si el comando docker falla (no existe), lo instalamos
             if ! command -v docker &> /dev/null; then
               echo "Instalando Docker..."
               curl -fsSL https://get.docker.com | sh
-              # Agregamos el usuario actual al grupo docker
-              # para poder usar docker sin sudo
               sudo usermod -aG docker $USER
               newgrp docker
             else
               echo "Docker ya está instalado: $(docker --version)"
             fi
 
-            # --- kubectl ---
             if ! command -v kubectl &> /dev/null; then
               echo "Instalando kubectl..."
               curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
@@ -51,7 +46,6 @@ jobs:
               echo "kubectl ya está instalado: $(kubectl version --client)"
             fi
 
-            # --- Minikube ---
             if ! command -v minikube &> /dev/null; then
               echo "Instalando Minikube..."
               curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
@@ -76,7 +70,20 @@ jobs:
             ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }} << 'EOF'
             
             minikube status || minikube start --driver=docker
-            
+
+            # Habilitamos el addon de ingress si no está activo
+            # el || true evita que falle el paso si ya estaba habilitado
+            minikube addons enable ingress || true
+
+            # Esperamos a que el ingress controller esté completamente
+            # listo antes de aplicar los manifiestos, porque si aplicamos
+            # el Ingress antes de que el controller exista, queda sin ADDRESS
+            echo "Esperando Ingress Controller..."
+            kubectl wait --namespace ingress-nginx \
+              --for=condition=ready pod \
+              --selector=app.kubernetes.io/component=controller \
+              --timeout=180s
+
             kubectl apply -k ~/k8s/overlays/local
             
           EOF
@@ -112,4 +119,41 @@ jobs:
             kubectl get services -n microservices
             kubectl get ingress -n microservices
             
+          EOF
+
+      - name: Setup port-forward
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }} << 'EOF'
+
+            # Matamos cualquier port-forward previo que esté corriendo
+            # para evitar conflictos de puerto si el pipeline se ejecuta
+            # varias veces
+            pkill -f "port-forward.*ingress-nginx" || true
+
+            # Corremos el port-forward en background con nohup
+            # nohup: mantiene el proceso vivo aunque la sesión SSH cierre
+            # &: lo manda al background para que no bloquee el pipeline
+            # los logs van a port-forward.log para poder debuggear si algo falla
+            nohup kubectl port-forward \
+              -n ingress-nginx \
+              service/ingress-nginx-controller 8080:80 \
+              --address=0.0.0.0 \
+              > ~/port-forward.log 2>&1 &
+
+            # Guardamos el PID para poder matarlo en el futuro si necesitamos
+            echo $! > ~/port-forward.pid
+            echo "Port-forward iniciado con PID: $(cat ~/port-forward.pid)"
+
+            # Esperamos 3 segundos y verificamos que el proceso sigue vivo
+            sleep 3
+            if kill -0 $(cat ~/port-forward.pid) 2>/dev/null; then
+              echo "Port-forward corriendo correctamente"
+              echo "Aplicación disponible en: http://$HOSTNAME:8080"
+            else
+              echo "Port-forward falló, revisa ~/port-forward.log"
+              cat ~/port-forward.log
+              exit 1
+            fi
+
           EOF
