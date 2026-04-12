@@ -3,39 +3,35 @@ kind: Ingress
 metadata:
   name: main-ingress
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
 spec:
   rules:
     - http:
         paths:
-          # /login/** → auth-api
-          - path: /login(/|$)(.*)
-            pathType: ImplementationSpecific
+          - path: /login
+            pathType: Prefix
             backend:
               service:
                 name: auth-api
                 port:
                   number: 8000
 
-          # /todos/** → todos-api
-          - path: /todos(/|$)(.*)
-            pathType: ImplementationSpecific
+          - path: /todos
+            pathType: Prefix
             backend:
               service:
                 name: todos-api
                 port:
                   number: 8082
 
-          # /users/** → users-api
-          - path: /users(/|$)(.*)
-            pathType: ImplementationSpecific
+          - path: /users
+            pathType: Prefix
             backend:
               service:
                 name: users-api
                 port:
                   number: 8083
 
-          # Todo lo demás → frontend
           - path: /
             pathType: Prefix
             backend:
