@@ -24,3 +24,5 @@ spec:
               value: "6379"
             - name: ZIPKIN_URL
               value: "http://zipkin-server:9411/api/v2/spans"
+            - name: JWT_SECRET
+              value: "myfancysecret"
