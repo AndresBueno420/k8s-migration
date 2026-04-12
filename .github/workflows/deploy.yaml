@@ -1,11 +1,13 @@
 name: Deploy to minikube
 on:
+  workflow_dispatch:
+  
   push:
     branches:
       - main
     paths:
       - 'k8s/**'
-  workflow_dispatch:
+  
 jobs:
   deploy:
     name: Deploy k8s manifests
@@ -13,18 +15,61 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Set up SSH Key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.AZURE_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.AZURE_VM_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Install dependencies on VM
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }} << 'EOF'
+            
+            # --- Docker ---
+            # Si el comando docker falla (no existe), lo instalamos
+            if ! command -v docker &> /dev/null; then
+              echo "Instalando Docker..."
+              curl -fsSL https://get.docker.com | sh
+              # Agregamos el usuario actual al grupo docker
+              # para poder usar docker sin sudo
+              sudo usermod -aG docker $USER
+              newgrp docker
+            else
+              echo "Docker ya está instalado: $(docker --version)"
+            fi
+
+            # --- kubectl ---
+            if ! command -v kubectl &> /dev/null; then
+              echo "Instalando kubectl..."
+              curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+              sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+              rm kubectl
+            else
+              echo "kubectl ya está instalado: $(kubectl version --client)"
+            fi
+
+            # --- Minikube ---
+            if ! command -v minikube &> /dev/null; then
+              echo "Instalando Minikube..."
+              curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+              sudo install minikube-linux-amd64 /usr/local/bin/minikube
+              rm minikube-linux-amd64
+            else
+              echo "Minikube ya está instalado: $(minikube version)"
+            fi
+            
+          EOF
+
       - name: Copy manifests to VM
         run: |
           rsync -avz \
             -e "ssh -i ~/.ssh/deploy_key" \
             ./k8s/ \
             ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }}:~/k8s/
+
       - name: Apply Kubernetes manifests
         run: |
           ssh -i ~/.ssh/deploy_key \
@@ -35,6 +80,7 @@ jobs:
             kubectl apply -k ~/k8s/overlays/local
             
           EOF
+
       - name: Verify deployments
         run: |
           ssh -i ~/.ssh/deploy_key \
