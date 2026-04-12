@@ -4,7 +4,7 @@ metadata:
   name: auth-api
 spec:   
   selector:
-    app: auth-app
+    app: auth-api
   ports:
     - port: 8000
       targetPort: 8000
