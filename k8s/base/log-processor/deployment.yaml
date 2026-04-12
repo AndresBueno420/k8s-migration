@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-processor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: log-processor
+  template:
+    metadata:
+      labels:
+        app: log-processor
+    spec:
+      containers:
+        - name: log-processor
+          image: ghcr.io/andresbueno420/log-message-processor:latest
+          env:
+            - name: REDIS_HOST
+              value: "redis-queue"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: ZIPKIN_URL
+              value: "http://zipkin-server:9411/api/v2/spans"

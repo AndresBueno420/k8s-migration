@@ -1,13 +1,13 @@
-apiversion: apps/v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redis-queue
 spec:
   replicas: 1
   selector:
-    matchlabels:
+    matchLabels:
       app: redis-queue
-  templates:
+  template:
     metadata:
       labels:
         app: redis-queue

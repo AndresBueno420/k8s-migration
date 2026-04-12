@@ -1,11 +1,11 @@
 apiversion: apps/v1
-kind: deployment
+kind: Deployment
 metadata:
   name: frontend-app
-specs:
+spec:
   replicas: 1
   selector:
-    matchlabels:
+    matchLabels:
       app: frontend-app
   template:
     metadata:

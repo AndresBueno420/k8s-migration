@@ -2,10 +2,10 @@ apiversion: apps/v1
 kind: Deployment
 metadata:
   name: zipkin-server
-specs:
+spec:
   replicas: 1
   selector:
-    matchlabels:
+    matchLabels:
       app: zipkin-server
   template:
     metadata:
