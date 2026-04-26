@@ -13,3 +13,9 @@ resources:
   - ../../../base/ingress/ingress.yaml
 
 namespace: apps
+
+components:
+  - ../../../../components/network-policies
+
+patches:
+  - path: patches/replicas-local.yaml
