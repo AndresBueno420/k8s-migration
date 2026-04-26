@@ -1,0 +1,10 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all
+  namespace: apps
+spec:
+  podSelector: {} # Aplicar a todos los pods del namespace, tengo entendido que todo lo que esta dentro tampoco se puede comunicar entre si.
+  policyTypes:
+    - Ingress
+    - Egress

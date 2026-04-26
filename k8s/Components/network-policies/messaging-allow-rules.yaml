@@ -1,0 +1,47 @@
+# Redis acepta tráfico desde microservices-app (todos-api)
+# y desde log-processor dentro del mismo namespace.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-to-redis
+  namespace: messaging
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: apps
+    - from:
+        - podSelector:
+            matchLabels:
+              app: log-processor
+---
+# log-processor no acepta ingress de nadie.
+# Solo necesita egress hacia Redis para leer mensajes
+# y DNS para resolver nombres.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-log-processor-egress
+  namespace: messaging
+spec:
+  podSelector:
+    matchLabels:
+      app: log-processor
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
