@@ -1,0 +1,20 @@
+# components/resource-limits/local/redis.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-queue
+spec:
+  template:
+    spec:
+      containers:
+      - name: redis-queue
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "200m"
+            memory: "128Mi"
+            # Redis en modo cola liviana no necesita
+            # mucha memoria. Si fuera un cache grande
+            # estos números serían muy distintos.

@@ -1,0 +1,24 @@
+# components/resource-limits/local/auth-api.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-api
+spec:
+  template:
+    spec:
+      containers:
+      - name: auth-api
+        resources:
+          requests:
+            cpu: "50m"
+            # 50 milicores. auth-api es liviano
+            # y en local no esperamos carga real.
+            memory: "64Mi"
+            # 64MB es suficiente para un servicio
+            # de autenticación sin carga.
+          limits:
+            cpu: "200m"
+            # Le damos hasta 0.2 cores si los necesita.
+            # En local no queremos que un servicio
+            # consuma más de esto.
+            memory: "128Mi"

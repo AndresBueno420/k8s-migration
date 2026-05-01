@@ -1,0 +1,20 @@
+# components/resource-limits/local/frontend.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  template:
+    spec:
+      containers:
+      - name: frontend-app
+        # IMPORTANTE: el name debe coincidir exactamente
+        # con el name del container en el deployment base.
+        # Tu frontend se llama "frontend-app", no "frontend".
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "200m"
+            memory: "128Mi"

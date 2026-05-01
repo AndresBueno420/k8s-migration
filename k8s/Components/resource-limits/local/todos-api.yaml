@@ -1,0 +1,19 @@
+# components/resource-limits/local/todos-api.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todos-api
+spec:
+  template:
+    spec:
+      containers:
+      - name: todos-api
+        resources:
+          requests:
+            cpu: "100m"
+            # Un poco más que auth-api porque todos-api
+            # escribe en Redis y procesa lógica de negocio.
+            memory: "128Mi"
+          limits:
+            cpu: "400m"
+            memory: "256Mi"

@@ -16,6 +16,7 @@ namespace: apps
 
 components:
   - ../../../../components/network-policies
+  - ../../../../components/resource-limits/local
 
 patches:
   - path: patches/replicas-local.yaml

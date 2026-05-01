@@ -1,0 +1,25 @@
+# components/resource-limits/local/users-api.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: users-api
+spec:
+  template:
+    spec:
+      containers:
+      - name: users-api
+        resources:
+          requests:
+            cpu: "150m"
+            memory: "300Mi"
+            # CRÍTICO: users-api es Java con -Xms256m.
+            # El request de memoria debe ser mayor que
+            # el Xms de la JVM o el pod nunca arrancará.
+            # 300Mi cubre los 256Mi de heap más overhead
+            # del proceso Java mismo.
+          limits:
+            cpu: "500m"
+            memory: "600Mi"
+            # El limit cubre el Xmx de 512Mi más overhead.
+            # Si pones 512Mi justo, el proceso Java más
+            # el overhead del SO matarán el pod por OOM.

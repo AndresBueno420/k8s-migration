@@ -1,0 +1,32 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+patches:
+  - path: auth-api.yaml
+    target:
+      kind: Deployment
+      name: auth-api
+  - path: frontend.yaml
+    target:
+      kind: Deployment
+      name: frontend
+  - path: todos-api.yaml
+    target:
+      kind: Deployment
+      name: todos-api
+  - path: users-api.yaml
+    target:
+      kind: Deployment
+      name: users-api
+  - path: log-processor.yaml
+    target:
+      kind: Deployment
+      name: log-processor
+  - path: redis.yaml
+    target:
+      kind: Deployment
+      name: redis-queue
+  - path: zipkin.yaml
+    target:
+      kind: Deployment
+      name: zipkin-server

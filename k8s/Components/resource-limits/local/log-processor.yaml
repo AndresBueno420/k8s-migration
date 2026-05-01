@@ -1,0 +1,19 @@
+# components/resource-limits/local/log-processor.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-processor
+spec:
+  template:
+    spec:
+      containers:
+      - name: log-processor
+        resources:
+          requests:
+            cpu: "30m"
+            # log-processor es el más liviano —
+            # solo lee de Redis y escribe logs.
+            memory: "32Mi"
+          limits:
+            cpu: "100m"
+            memory: "64Mi"
