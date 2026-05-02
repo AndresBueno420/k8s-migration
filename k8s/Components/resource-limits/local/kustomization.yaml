@@ -9,7 +9,7 @@ patches:
   - path: frontend.yaml
     target:
       kind: Deployment
-      name: frontend
+      name: frontend-app
   - path: todos-api.yaml
     target:
       kind: Deployment
