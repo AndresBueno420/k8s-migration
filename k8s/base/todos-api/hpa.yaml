@@ -1,0 +1,49 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: todos-api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: todos-api
+
+  minReplicas: 1
+  maxReplicas: 8
+  # todos-api es el servicio de mayor carga —
+  # recibe requests de usuarios, escribe en Redis,
+  # valida JWT. Le damos más techo que auth-api.
+
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 65
+          # Más agresivo que auth-api porque las operaciones
+          # son más pesadas. Escalamos antes.
+
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 75
+
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Pods
+          value: 3
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 180
+      # 3 minutos — más conservador porque los usuarios
+      # de todos-api son interactivos. No queremos matar
+      # pods mientras hay sesiones activas.
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120

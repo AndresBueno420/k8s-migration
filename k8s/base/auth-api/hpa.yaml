@@ -1,0 +1,53 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: auth-api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: auth-api
+    # Debe coincidir exactamente con el metadata.name
+    # del Deployment de auth-api
+
+  minReplicas: 1
+  maxReplicas: 5
+
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+          # 70% del request de CPU definido en resource-limits.
+          # auth-api tiene request de 50m, entonces el HPA
+          # escala cuando el promedio supera 35m de uso.
+
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      # Espera 30s antes de volver a escalar hacia arriba.
+      # Evita crear pods innecesarios por picos muy cortos.
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+          # Máximo 2 pods nuevos por minuto.
+
+    scaleDown:
+      stabilizationWindowSeconds: 120
+      # Más conservador bajando que subiendo.
+      # Espera 2 minutos de carga baja antes de eliminar pods.
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+          # Baja de a 1 pod por minuto.
