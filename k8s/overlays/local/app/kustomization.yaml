@@ -15,4 +15,4 @@ components:
   - ../../../Components/resource-limits/local
 
 patches:
-  - path: patches/replicas-local.yaml
+  - path: patches/hpa-local.yaml
