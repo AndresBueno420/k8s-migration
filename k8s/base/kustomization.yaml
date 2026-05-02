@@ -2,21 +2,12 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - namespace.yaml
-  - redis/deployment.yaml
-  - redis/service.yaml
-  - zipkin/deployment.yaml
-  - zipkin/service.yaml
-  - users-api/deployment.yaml
-  - users-api/service.yaml
-  - auth-api/deployment.yaml
-  - auth-api/service.yaml
-  - todos-api/deployment.yaml
-  - todos-api/service.yaml
-  - log-processor/deployment.yaml
-  - frontend/deployment.yaml
-  - frontend/service.yaml
-  - ingress/ingress.yaml
-  - namespace-app.yaml
-  - namespace-messaging.yaml
-  - namespace-observability.yaml
+  - namespaces/
+  - auth-api/
+  - todos-api/
+  - users-api/
+  - frontend/
+  - ingress/
+  - redis/
+  - log-processor/
+  - zipkin/
