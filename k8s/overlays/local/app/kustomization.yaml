@@ -11,7 +11,7 @@ resources:
 namespace: apps
 
 components:
-  - ../../../Components/network-policies
+  - ../../../Components/network-policies/app
   - ../../../Components/resource-limits/local
 
 patches:

@@ -6,3 +6,6 @@ resources:
   - ../../../base/log-processor
 
 namespace: messaging
+
+components:
+  - ../../../Components/network-policies/messaging
