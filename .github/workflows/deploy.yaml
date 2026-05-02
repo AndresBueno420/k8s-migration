@@ -26,133 +26,103 @@ jobs:
       - name: Install dependencies on VM
         run: |
           ssh -i ~/.ssh/deploy_key \
-            ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }} << 'EOF'
-            
-            if ! command -v docker &> /dev/null; then
-              echo "Instalando Docker..."
-              curl -fsSL https://get.docker.com | sh
-              sudo usermod -aG docker $USER
-              sg docker -c "docker ps"
-            else
-              echo "Docker ya está instalado: $(docker --version)"
-            fi
+            ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }} 'bash -s' << 'EOF'
 
-            if ! command -v kubectl &> /dev/null; then
-              echo "Instalando kubectl..."
-              curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-              sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-              rm kubectl
-            else
-              echo "kubectl ya está instalado: $(kubectl version --client)"
-            fi
+          if ! command -v docker &> /dev/null; then
+            echo "Instalando Docker..."
+            curl -fsSL https://get.docker.com | sh
+            sudo usermod -aG docker $USER
+            sg docker -c "docker ps"
+          else
+            echo "Docker ya está instalado: $(docker --version)"
+          fi
 
-            if ! command -v minikube &> /dev/null; then
-              echo "Instalando Minikube..."
-              curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-              sudo install minikube-linux-amd64 /usr/local/bin/minikube
-              rm minikube-linux-amd64
-            else
-              echo "Minikube ya está instalado: $(minikube version)"
-            fi
+          if ! command -v kubectl &> /dev/null; then
+            echo "Instalando kubectl..."
+            curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+            sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+            rm kubectl
+          else
+            echo "kubectl ya está instalado: $(kubectl version --client)"
+          fi
 
-            # Instalamos kustomize de forma independiente
-            # porque la versión integrada en kubectl a veces es
-            # más antigua y puede no soportar la sintaxis de components
-            if ! command -v kustomize &> /dev/null; then
-              echo "Instalando kustomize..."
-              curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
-              sudo mv kustomize /usr/local/bin/
-            else
-              echo "kustomize ya está instalado: $(kustomize version)"
-            fi
-            
+          if ! command -v minikube &> /dev/null; then
+            echo "Instalando Minikube..."
+            curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+            sudo install minikube-linux-amd64 /usr/local/bin/minikube
+            rm minikube-linux-amd64
+          else
+            echo "Minikube ya está instalado: $(minikube version)"
+          fi
+
+          if ! command -v kustomize &> /dev/null; then
+            echo "Instalando kustomize..."
+            curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+            sudo mv kustomize /usr/local/bin/
+          else
+            echo "kustomize ya está instalado: $(kustomize version)"
+          fi
+
           EOF
 
-      # NUEVO PASO: detener y recrear Minikube si no tiene Calico
       - name: Start Minikube with Calico
         run: |
           ssh -i ~/.ssh/deploy_key \
-            ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }} << 'EOF'
-            
-            sg docker << 'DOCKEREOF'
+            ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }} 'bash -s' << 'EOF'
 
-              if minikube status | grep -q "Running"; then
-                echo "Minikube ya está corriendo"
+          sg docker -c '
+            if minikube status | grep -q "Running"; then
+              echo "Minikube ya está corriendo"
 
-                if kubectl get pods -n kube-system | grep -q "calico-node"; then
-                  echo "Calico ya está activo, no es necesario recrear el cluster"
-                else
-                  echo "El cluster existe pero sin Calico, recreando..."
-                  minikube stop
-                  minikube delete
-
-                  echo "Creando cluster con Calico como CNI..."
-                  minikube start \
-                    --driver=docker \
-                    --network-plugin=cni \
-                    --cni=calico \
-                    --memory=4096 \
-                    --cpus=2
-                fi
+              if kubectl get pods -n kube-system | grep -q "calico-node"; then
+                echo "Calico ya está activo, no es necesario recrear el cluster"
               else
-                echo "Minikube no está corriendo, iniciando con Calico..."
-                minikube start \
-                  --driver=docker \
-                  --network-plugin=cni \
-                  --cni=calico \
-                  --memory=4096 \
-                  --cpus=2
+                echo "El cluster existe pero sin Calico, recreando..."
+                minikube stop
+                minikube delete
+
+                echo "Creando cluster con Calico como CNI..."
+                minikube start --driver=docker --network-plugin=cni --cni=calico --memory=4096 --cpus=2
               fi
+            else
+              echo "Minikube no está corriendo, iniciando con Calico..."
+              minikube start --driver=docker --network-plugin=cni --cni=calico --memory=4096 --cpus=2
+            fi
 
-              echo "Esperando a que Calico esté listo..."
-              kubectl wait pods \
-                -n kube-system \
-                -l k8s-app=calico-node \
-                --for=condition=Ready \
-                --timeout=180s
+            echo "Esperando a que Calico este listo..."
+            kubectl wait pods -n kube-system -l k8s-app=calico-node --for=condition=Ready --timeout=180s
 
-              echo "Cluster listo con Calico activo"
-
-            DOCKEREOF
+            echo "Cluster listo con Calico activo"
+          '
 
           EOF
 
-      # Habilitar addons necesarios por separado
-      # Los separamos del apply de manifiestos porque necesitan
-      # estar listos ANTES de que apliquemos nuestros recursos.
       - name: Enable Minikube addons
         run: |
           ssh -i ~/.ssh/deploy_key \
-            ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }} << 'EOF'
+            ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }} 'bash -s' << 'EOF'
 
-            # Ingress Controller — enruta el tráfico externo
-            # hacia los servicios dentro del cluster
+          sg docker -c '
             minikube addons enable ingress || true
-
-            # Metrics Server — provee métricas de CPU y memoria
-            # a Kubernetes. Sin esto el HPA no puede funcionar.
-            # Es el "ojo" que le permite al HPA ver cuánto consume
-            # cada pod.
             minikube addons enable metrics-server || true
+          '
 
-            # Esperamos al Ingress Controller
-            echo "Esperando Ingress Controller..."
-            kubectl wait \
-              --namespace ingress-nginx \
-              --for=condition=ready pod \
-              --selector=app.kubernetes.io/component=controller \
-              --timeout=180s
+          echo "Esperando Ingress Controller..."
+          kubectl wait \
+            --namespace ingress-nginx \
+            --for=condition=ready pod \
+            --selector=app.kubernetes.io/component=controller \
+            --timeout=180s
 
-            # Esperamos al Metrics Server
-            echo "Esperando Metrics Server..."
-            kubectl wait \
-              --namespace kube-system \
-              --for=condition=ready pod \
-              --selector=k8s-app=metrics-server \
-              --timeout=120s
+          echo "Esperando Metrics Server..."
+          kubectl wait \
+            --namespace kube-system \
+            --for=condition=ready pod \
+            --selector=k8s-app=metrics-server \
+            --timeout=120s
 
-            echo "Todos los addons están listos"
-            
+          echo "Todos los addons están listos"
+
           EOF
 
       - name: Copy manifests to VM
@@ -165,105 +135,87 @@ jobs:
       - name: Apply Kubernetes manifests
         run: |
           ssh -i ~/.ssh/deploy_key \
-            ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }} << 'EOF'
+            ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }} 'bash -s' << 'EOF'
 
-            # Usamos kustomize directamente en lugar de kubectl apply -k
-            # porque kustomize standalone soporta mejor los components
-            # que usamos para network-policies y resource-limits.
-            # El resultado de kustomize build es YAML puro que
-            # kubectl apply -f - lee desde stdin (el guión al final).
-            echo "Aplicando manifiestos del overlay local..."
-            kustomize build ~/k8s/overlays/local | kubectl apply -f -
+          echo "Aplicando manifiestos del overlay local..."
+          kustomize build ~/k8s/overlays/local | kubectl apply -f -
 
-            echo "Manifiestos aplicados correctamente"
-            
+          echo "Manifiestos aplicados correctamente"
+
           EOF
 
-      # MODIFICADO: los namespaces ahora son tres distintos
-      # así que verificamos en cada uno por separado
       - name: Verify deployments
         run: |
           ssh -i ~/.ssh/deploy_key \
-            ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }} << 'EOF'
+            ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }} 'bash -s' << 'EOF'
 
-            echo "=== Verificando namespace microservices-app ==="
-            kubectl rollout status deployment/auth-api \
-              -n apps --timeout=300s
+          echo "=== Verificando namespace microservices-app ==="
+          kubectl rollout status deployment/auth-api -n microservices-app --timeout=300s
+          kubectl rollout status deployment/users-api -n microservices-app --timeout=300s
+          kubectl rollout status deployment/todos-api -n microservices-app --timeout=300s
+          kubectl rollout status deployment/frontend -n microservices-app --timeout=300s
 
-            kubectl rollout status deployment/users-api \
-              -n apps --timeout=300s
+          echo "=== Verificando namespace microservices-messaging ==="
+          kubectl rollout status deployment/redis-queue -n microservices-messaging --timeout=300s
+          kubectl rollout status deployment/log-processor -n microservices-messaging --timeout=300s
 
-            kubectl rollout status deployment/todos-api \
-              -n apps --timeout=300s
+          echo "=== Verificando namespace microservices-observability ==="
+          kubectl rollout status deployment/zipkin-server -n microservices-observability --timeout=300s
 
-            kubectl rollout status deployment/frontend \
-              -n apps --timeout=300s
+          echo ""
+          echo "=== Estado final del cluster ==="
 
-            echo "=== Verificando namespace microservices-messaging ==="
-            kubectl rollout status deployment/redis-queue \
-              -n messaging --timeout=300s
+          echo "-- Pods en microservices-app --"
+          kubectl get pods -n microservices-app
 
-            kubectl rollout status deployment/log-processor \
-              -n messaging --timeout=300s
+          echo "-- Pods en microservices-messaging --"
+          kubectl get pods -n microservices-messaging
 
-            echo "=== Verificando namespace microservices-observability ==="
-            kubectl rollout status deployment/zipkin-server \
-              -n observability --timeout=300s
+          echo "-- Pods en microservices-observability --"
+          kubectl get pods -n microservices-observability
 
-            echo ""
-            echo "=== Estado final del cluster ==="
-            echo "-- Pods en microservices-app --"
-            kubectl get pods -n apps
+          echo "-- Services --"
+          kubectl get services -n microservices-app
+          kubectl get services -n microservices-messaging
+          kubectl get services -n microservices-observability
 
-            echo "-- Pods en microservices-messaging --"
-            kubectl get pods -n messaging
+          echo "-- Ingress --"
+          kubectl get ingress -n microservices-app
 
-            echo "-- Pods en microservices-observability --"
-            kubectl get pods -n observability
+          echo "-- NetworkPolicies --"
+          kubectl get networkpolicies -n microservices-app
+          kubectl get networkpolicies -n microservices-messaging
+          kubectl get networkpolicies -n microservices-observability
 
-            echo "-- Services --"
-            kubectl get services -n apps
-            kubectl get services -n messaging
-            kubectl get services -n observability
+          echo "-- HPA --"
+          kubectl get hpa -n microservices-app || true
 
-            echo "-- Ingress --"
-            kubectl get ingress -n apps
-
-            echo "-- NetworkPolicies --"
-            kubectl get networkpolicies -n apps
-            kubectl get networkpolicies -n messaging
-            kubectl get networkpolicies -n observability
-
-            echo "-- HPA (si existen) --"
-            kubectl get hpa -n apps || true
-            # el || true evita que falle si todavía no hay HPAs definidos
-            
           EOF
 
       - name: Setup port-forward
         run: |
           ssh -i ~/.ssh/deploy_key \
-            ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }} << 'EOF'
+            ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }} 'bash -s' << 'EOF'
 
-            pkill -f "port-forward.*ingress-nginx" || true
+          pkill -f "port-forward.*ingress-nginx" || true
 
-            nohup kubectl port-forward \
-              -n ingress-nginx \
-              service/ingress-nginx-controller 8080:80 \
-              --address=0.0.0.0 \
-              > ~/port-forward.log 2>&1 &
+          nohup kubectl port-forward \
+            -n ingress-nginx \
+            service/ingress-nginx-controller 8080:80 \
+            --address=0.0.0.0 \
+            > ~/port-forward.log 2>&1 &
 
-            echo $! > ~/port-forward.pid
-            echo "Port-forward iniciado con PID: $(cat ~/port-forward.pid)"
+          echo $! > ~/port-forward.pid
+          echo "Port-forward iniciado con PID: $(cat ~/port-forward.pid)"
 
-            sleep 3
-            if kill -0 $(cat ~/port-forward.pid) 2>/dev/null; then
-              echo "Port-forward corriendo correctamente"
-              echo "Aplicación disponible en: http://${{ secrets.AZURE_VM_HOST }}:8080"
-            else
-              echo "Port-forward falló, revisa ~/port-forward.log"
-              cat ~/port-forward.log
-              exit 1
-            fi
-            
+          sleep 3
+          if kill -0 $(cat ~/port-forward.pid) 2>/dev/null; then
+            echo "Port-forward corriendo correctamente"
+            echo "Aplicación disponible en: http://${{ secrets.AZURE_VM_HOST }}:8080"
+          else
+            echo "Port-forward falló, revisa ~/port-forward.log"
+            cat ~/port-forward.log
+            exit 1
+          fi
+
           EOF
