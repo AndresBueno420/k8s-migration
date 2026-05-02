@@ -6,7 +6,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: frontend
+    name: frontend-app
 
   minReplicas: 1
   maxReplicas: 6
