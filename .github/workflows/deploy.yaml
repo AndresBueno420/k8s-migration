@@ -32,7 +32,7 @@ jobs:
               echo "Instalando Docker..."
               curl -fsSL https://get.docker.com | sh
               sudo usermod -aG docker $USER
-              newgrp docker
+              sg docker -c "docker ps"
             else
               echo "Docker ya está instalado: $(docker --version)"
             fi
@@ -73,56 +73,48 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key \
             ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }} << 'EOF'
+            
+            sg docker << 'DOCKEREOF'
 
-            # Verificamos si Minikube está corriendo
-            if minikube status | grep -q "Running"; then
-              echo "Minikube ya está corriendo"
+              if minikube status | grep -q "Running"; then
+                echo "Minikube ya está corriendo"
 
-              # Verificamos si Calico está instalado como CNI.
-              # Si los pods de calico-node existen, el cluster
-              # ya fue creado con Calico y no necesitamos recrearlo.
-              if kubectl get pods -n kube-system | grep -q "calico-node"; then
-                echo "Calico ya está activo, no es necesario recrear el cluster"
+                if kubectl get pods -n kube-system | grep -q "calico-node"; then
+                  echo "Calico ya está activo, no es necesario recrear el cluster"
+                else
+                  echo "El cluster existe pero sin Calico, recreando..."
+                  minikube stop
+                  minikube delete
+
+                  echo "Creando cluster con Calico como CNI..."
+                  minikube start \
+                    --driver=docker \
+                    --network-plugin=cni \
+                    --cni=calico \
+                    --memory=4096 \
+                    --cpus=2
+                fi
               else
-                echo "El cluster existe pero sin Calico."
-                echo "Deteniendo cluster actual para recrearlo con Calico..."
-                minikube stop
-                minikube delete
-                
-                echo "Creando cluster con Calico como CNI..."
+                echo "Minikube no está corriendo, iniciando con Calico..."
                 minikube start \
                   --driver=docker \
                   --network-plugin=cni \
                   --cni=calico \
                   --memory=4096 \
                   --cpus=2
-                  # --memory y --cpus definen cuántos recursos
-                  # del host le damos a Minikube. 4GB y 2 CPUs
-                  # es suficiente para todos tus servicios en local.
-                  # Si la VM tiene más recursos puedes subir estos valores.
               fi
-            else
-              echo "Minikube no está corriendo, iniciando con Calico..."
-              minikube start \
-                --driver=docker \
-                --network-plugin=cni \
-                --cni=calico \
-                --memory=4096 \
-                --cpus=2
-            fi
 
-            # Esperamos a que Calico esté completamente listo.
-            # Calico necesita estar operativo antes de que apliquemos
-            # las NetworkPolicies, si no las crea pero no las enforcea.
-            echo "Esperando a que Calico esté listo..."
-            kubectl wait pods \
-              -n kube-system \
-              -l k8s-app=calico-node \
-              --for=condition=Ready \
-              --timeout=180s
+              echo "Esperando a que Calico esté listo..."
+              kubectl wait pods \
+                -n kube-system \
+                -l k8s-app=calico-node \
+                --for=condition=Ready \
+                --timeout=180s
 
-            echo "Cluster listo con Calico activo"
-            
+              echo "Cluster listo con Calico activo"
+
+            DOCKEREOF
+
           EOF
 
       # Habilitar addons necesarios por separado
