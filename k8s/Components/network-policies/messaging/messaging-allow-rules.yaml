@@ -6,7 +6,7 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      app: redis
+      app: redis-queue
   policyTypes:
     - Ingress
   ingress:
@@ -34,7 +34,7 @@ spec:
     - to:
         - podSelector:
             matchLabels:
-              app: redis
+              app: redis-queue
     - ports:
         - port: 53
           protocol: UDP
