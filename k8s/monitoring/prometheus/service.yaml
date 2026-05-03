@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  selector:
+    app: prometheus
+  ports:
+    - port: 9090
+      targetPort: 9090
+  type: ClusterIP
+  # ClusterIP significa que solo es accesible desde
+  # dentro del cluster. El Prometheus Adapter lo usa
+  # por este nombre DNS interno: prometheus.monitoring.svc.cluster.local
