@@ -144,77 +144,124 @@ jobs:
 
           EOF
 
+      - name: Apply monitoring stack
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }} 'bash -s' << 'EOF'
+
+          echo "Aplicando Prometheus..."
+          kustomize build ~/k8s/monitoring/prometheus | kubectl apply -f -
+
+          echo "Esperando a que Prometheus esté listo..."
+          kubectl rollout status deployment/prometheus \
+            -n monitoring --timeout=180s
+
+          echo "Prometheus listo"
+
+          EOF
+
       - name: Verify deployments
         run: |
           ssh -i ~/.ssh/deploy_key \
             ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }} 'bash -s' << 'EOF'
 
-          echo "=== Verificando namespace microservices-app ==="
-          kubectl rollout status deployment/auth-api -n microservices-app --timeout=300s
-          kubectl rollout status deployment/users-api -n microservices-app --timeout=300s
-          kubectl rollout status deployment/todos-api -n microservices-app --timeout=300s
-          kubectl rollout status deployment/frontend -n microservices-app --timeout=300s
+          echo "=== Verificando namespace apps ==="
+          kubectl rollout status deployment/auth-api -n apps --timeout=300s
+          kubectl rollout status deployment/users-api -n apps --timeout=300s
+          kubectl rollout status deployment/todos-api -n apps --timeout=300s
+          kubectl rollout status deployment/frontend-app -n apps --timeout=300s
 
-          echo "=== Verificando namespace microservices-messaging ==="
-          kubectl rollout status deployment/redis-queue -n microservices-messaging --timeout=300s
-          kubectl rollout status deployment/log-processor -n microservices-messaging --timeout=300s
+          echo "=== Verificando namespace messaging ==="
+          kubectl rollout status deployment/redis-queue -n messaging --timeout=300s
+          kubectl rollout status deployment/log-processor -n messaging --timeout=300s
 
-          echo "=== Verificando namespace microservices-observability ==="
-          kubectl rollout status deployment/zipkin-server -n microservices-observability --timeout=300s
+          echo "=== Verificando namespace observability ==="
+          kubectl rollout status deployment/zipkin-server -n observability --timeout=300s
+
+          echo "=== Verificando namespace monitoring ==="
+          kubectl rollout status deployment/prometheus -n monitoring --timeout=300s
 
           echo ""
           echo "=== Estado final del cluster ==="
 
-          echo "-- Pods en microservices-app --"
-          kubectl get pods -n microservices-app
+          echo "-- Pods en apps --"
+          kubectl get pods -n apps
 
-          echo "-- Pods en microservices-messaging --"
-          kubectl get pods -n microservices-messaging
+          echo "-- Pods en messaging --"
+          kubectl get pods -n messaging
 
-          echo "-- Pods en microservices-observability --"
-          kubectl get pods -n microservices-observability
+          echo "-- Pods en observability --"
+          kubectl get pods -n observability
+
+          echo "-- Pods en monitoring --"
+          kubectl get pods -n monitoring
 
           echo "-- Services --"
-          kubectl get services -n microservices-app
-          kubectl get services -n microservices-messaging
-          kubectl get services -n microservices-observability
+          kubectl get services -n apps
+          kubectl get services -n messaging
+          kubectl get services -n observability
+          kubectl get services -n monitoring
 
           echo "-- Ingress --"
-          kubectl get ingress -n microservices-app
+          kubectl get ingress -n apps
 
           echo "-- NetworkPolicies --"
-          kubectl get networkpolicies -n microservices-app
-          kubectl get networkpolicies -n microservices-messaging
-          kubectl get networkpolicies -n microservices-observability
+          kubectl get networkpolicies -n apps
+          kubectl get networkpolicies -n messaging
+          kubectl get networkpolicies -n observability
 
           echo "-- HPA --"
-          kubectl get hpa -n microservices-app || true
+          kubectl get hpa -n apps || true
 
           EOF
 
-      - name: Setup port-forward
+      - name: Setup port-forwards
         run: |
           ssh -i ~/.ssh/deploy_key \
             ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }} 'bash -s' << 'EOF'
 
+          # Matar port-forwards previos para evitar conflictos
+          # si la pipeline se ejecuta varias veces
           pkill -f "port-forward.*ingress-nginx" || true
+          pkill -f "port-forward.*prometheus" || true
 
+          # Port-forward del Ingress — la aplicación principal
           nohup kubectl port-forward \
             -n ingress-nginx \
             service/ingress-nginx-controller 8080:80 \
             --address=0.0.0.0 \
-            > ~/port-forward.log 2>&1 &
+            > ~/port-forward-ingress.log 2>&1 &
+          echo $! > ~/port-forward-ingress.pid
 
-          echo $! > ~/port-forward.pid
-          echo "Port-forward iniciado con PID: $(cat ~/port-forward.pid)"
+          # Port-forward de Prometheus — la UI de métricas
+          # Necesitas tener el puerto 9090 abierto en el
+          # Security Group de Azure para acceder desde el navegador
+          nohup kubectl port-forward \
+            -n monitoring \
+            service/prometheus 9090:9090 \
+            --address=0.0.0.0 \
+            > ~/port-forward-prometheus.log 2>&1 &
+          echo $! > ~/port-forward-prometheus.pid
 
           sleep 3
-          if kill -0 $(cat ~/port-forward.pid) 2>/dev/null; then
-            echo "Port-forward corriendo correctamente"
+
+          # Verificar ingress
+          if kill -0 $(cat ~/port-forward-ingress.pid) 2>/dev/null; then
+            echo "Ingress port-forward corriendo correctamente"
             echo "Aplicación disponible en: http://${{ secrets.AZURE_VM_HOST }}:8080"
           else
-            echo "Port-forward falló, revisa ~/port-forward.log"
-            cat ~/port-forward.log
+            echo "Ingress port-forward falló"
+            cat ~/port-forward-ingress.log
+            exit 1
+          fi
+
+          # Verificar prometheus
+          if kill -0 $(cat ~/port-forward-prometheus.pid) 2>/dev/null; then
+            echo "Prometheus port-forward corriendo correctamente"
+            echo "Prometheus disponible en: http://${{ secrets.AZURE_VM_HOST }}:9090"
+          else
+            echo "Prometheus port-forward falló"
+            cat ~/port-forward-prometheus.log
             exit 1
           fi
 
