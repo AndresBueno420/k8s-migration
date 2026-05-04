@@ -17,6 +17,8 @@ spec:
           ports:
             - containerPort: 3000
           env:
+            - name: HOST
+              value: "0.0.0.0"
             - name: AUTH_API_ADDRESS
               value: "http://auth-api:8000"
             - name: TODOS_API_ADDRESS
