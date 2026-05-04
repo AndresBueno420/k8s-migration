@@ -1,0 +1,31 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-egress
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app: prometheus
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: apps
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: messaging
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+      # Prometheus puede salir hacia los tres namespaces
+      # de la aplicación para scrapeear métricas.
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+        # DNS — sin esto Prometheus no puede resolver
+        # los nombres de los pods que descubre.

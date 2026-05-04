@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todos-api
+spec:
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9113"
+        prometheus.io/path: "/metrics"
+        # Le decimos a Prometheus que scrapeee el puerto 9113
+        # que es donde corre el sidecar, no el 8082 de la app.
+    spec:
+      containers:
+        - name: metrics-proxy
+          image: nginx:alpine
+          # Nginx actúa como proxy entre Prometheus y la app.
+          # Recibe en /metrics sin auth y reenvía a todos-api
+          # con el header de autorización correcto.
+          ports:
+            - containerPort: 9113
+              # Puerto dedicado para métricas.
+              # Separado del 8082 de la aplicación.
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: todos-api-metrics-proxy
+            # ConfigMap con la configuración de nginx.

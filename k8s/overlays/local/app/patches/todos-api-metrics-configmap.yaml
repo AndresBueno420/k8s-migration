@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: todos-api-metrics-proxy
+  namespace: apps
+data:
+  default.conf: |
+    server {
+      listen 9113;
+      # Nginx escucha en este puerto para Prometheus.
+
+      location /metrics {
+        proxy_pass http://localhost:8082/metrics;
+        # Reenvía la request al todos-api en el mismo pod.
+        # "localhost" funciona porque están en el mismo pod
+        # y comparten la red del pod.
+        proxy_set_header Authorization "Bearer internal-metrics-token";
+        # Agrega el header de autorización que todos-api requiere.
+        # En producción este token vendría de un Secret,
+        # no hardcodeado aquí.
+      }
+    }

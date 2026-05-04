@@ -3,3 +3,4 @@ kind: Component
 resources:
   - app-deny-all.yaml
   - app-allow-rules.yaml
+  - prometheus-scrape.yaml

@@ -17,3 +17,4 @@ components:
 patches:
   - path: patches/hpa-local.yaml
   - path: patches/prometheus-annotations.yaml
+  - path: patches/todos-metrics-expose.yaml
