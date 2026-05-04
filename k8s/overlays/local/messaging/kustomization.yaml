@@ -9,3 +9,5 @@ namespace: messaging
 
 components:
   - ../../../Components/network-policies/messaging
+patches:
+  - path: patches/zipkin-url.yaml

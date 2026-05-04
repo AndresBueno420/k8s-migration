@@ -34,6 +34,36 @@ data:
           - source_labels: [__meta_kubernetes_pod_label_app]
             target_label: app
 
+      - job_name: 'blackbox-http'
+        # Este job usa el Blackbox Exporter para medir
+        # la latencia y disponibilidad de todos-api
+        # desde afuera sin necesitar autenticación interna.
+        metrics_path: /probe
+        params:
+          module: [http_2xx]
+          # Le decimos al blackbox qué módulo usar —
+          # el que definimos en su ConfigMap.
+        static_configs:
+          - targets:
+              - http://todos-api.apps.svc.cluster.local:8082
+              - http://auth-api.apps.svc.cluster.local:8000
+              - http://users-api.apps.svc.cluster.local:8083
+              # Los servicios que queremos medir.
+              # El blackbox hace una request HTTP a cada uno
+              # y mide cuánto tarda en responder.
+        relabel_configs:
+          - source_labels: [__address__]
+            target_label: __param_target
+            # Pasa la URL como parámetro al blackbox exporter.
+          - source_labels: [__param_target]
+            target_label: instance
+            # Guarda la URL como label "instance" en la métrica.
+          - target_label: __address__
+            replacement: blackbox-exporter.monitoring.svc.cluster.local:9115
+            # Redirige la request de Prometheus al blackbox exporter
+            # en lugar de ir directamente al servicio.
+            # El blackbox es quien realmente hace el probe.
+
       - job_name: 'kubernetes-nodes'
         kubernetes_sd_configs:
           - role: node

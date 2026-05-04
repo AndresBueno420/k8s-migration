@@ -17,5 +17,4 @@ components:
 patches:
   - path: patches/hpa-local.yaml
   - path: patches/prometheus-annotations.yaml
-  - path: patches/todos-metrics-expose.yaml
-  - path: patches/todos-api-metrics-configmap.yaml
+  - path: patches/zipkin-url.yaml

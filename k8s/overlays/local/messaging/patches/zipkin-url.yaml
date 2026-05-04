@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-processor
+spec:
+  template:
+    spec:
+      containers:
+        - name: log-processor
+          env:
+            - name: ZIPKIN_URL
+              value: "http://zipkin-server.observability.svc.cluster.local:9411/api/v2/spans"
+            - name: REDIS_HOST
+              value: "redis-queue.messaging.svc.cluster.local"
+              # También corregimos Redis con FQDN por si acaso,
+              # aunque está en el mismo namespace debería resolver
+              # igual — pero el FQDN es más explícito y seguro.

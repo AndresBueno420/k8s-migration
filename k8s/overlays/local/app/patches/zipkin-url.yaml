@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todos-api
+spec:
+  template:
+    spec:
+      containers:
+        - name: todos-api
+          env:
+            - name: ZIPKIN_URL
+              value: "http://zipkin-server.observability.svc.cluster.local:9411/api/v2/spans"
+              # El FQDN completo permite resolver el servicio
+              # desde un namespace distinto.
+              # Formato: servicio.namespace.svc.cluster.local
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-api
+spec:
+  template:
+    spec:
+      containers:
+        - name: auth-api
+          env:
+            - name: ZIPKIN_URL
+              value: "http://zipkin-server.observability.svc.cluster.local:9411/api/v2/spans"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: users-api
+spec:
+  template:
+    spec:
+      containers:
+        - name: users-api
+          env:
+            - name: ZIPKIN_URL
+              value: "http://zipkin-server.observability.svc.cluster.local:9411/api/v2/spans"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-app
+spec:
+  template:
+    spec:
+      containers:
+        - name: frontend-app
+          env:
+            - name: ZIPKIN_URL
+              value: "http://zipkin-server.observability.svc.cluster.local:9411/api/v2/spans"
